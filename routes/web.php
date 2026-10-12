@@ -3,11 +3,12 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 Route::get('/form-mahasiswa', function () {
     return view('form-mahasiswa');
 });
-
+    
 Route::post('/form-mahasiswa', function (Request $request) {
     $dataBersih = [
         'nama' => strip_tags(trim((string) $request->input('nama'))),
@@ -47,4 +48,39 @@ Route::post('/form-mahasiswa', function (Request $request) {
     $data['usia'] = (int) $data['usia'];
 
     return view('hasil-form', ['data' => $data]);
+});
+
+Route::get('/mahasiswa/{nim?}', function (?string $nim = null) {
+    try {
+        $pdo = DB::connection()->getPdo();
+
+        $sql = 'SELECT m.nim, m.nama, m.email, m.usia, p.nama_prodi
+                FROM mahasiswa AS m
+                JOIN program_studi AS p ON p.id = m.program_studi_id';
+
+        if ($nim !== null) {
+            $sql .= ' WHERE m.nim = :nim';
+        }
+
+        $sql .= ' ORDER BY m.nim';
+
+        $stmt = $pdo->prepare($sql);
+        if ($nim !== null) {
+            $stmt->execute(['nim' => $nim]);
+        } else {
+            $stmt->execute();
+        }
+        $mahasiswa = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        return view('mahasiswa', [
+            'mahasiswa' => $mahasiswa,
+            'nim' => $nim,
+        ]);
+    } catch (\Exception $e) {
+        return view('mahasiswa', [
+            'mahasiswa' => [],
+            'nim' => $nim,
+            'error' => 'Gagal mengambil data: ' . $e->getMessage(),
+        ]);
+    }
 });
